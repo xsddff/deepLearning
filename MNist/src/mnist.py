@@ -13,14 +13,14 @@ transform = transforms.Compose([
 ])
 
 trainData = torchvision.datasets.MNIST(
-  root='./dataset',
+  root='../dataset',
   train=True,
   download=True,
   transform=transform
 )
 
 testData = torchvision.datasets.MNIST(
-  root='./dataset',
+  root='../dataset',
   train=False,
   download=True,
   transform=transform
@@ -90,7 +90,7 @@ plt.plot(range(1,len(losses)+1),losses,color='blue')
 plt.show()
 
 
-model.load_state_dict(torch.load('model.pth'))
+model.load_state_dict(torch.load('../model/model.pth'))
 model.eval()
 total = 0
 arr = []
