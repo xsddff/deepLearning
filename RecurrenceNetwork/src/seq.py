@@ -26,8 +26,7 @@ def seq_data_iter_random(corpus: list,batch_size,time_step):
     indices = corpus[:seq_nums*time_step:time_step]
     random.shuffle(indices)
     
-    def get_data(indices):
-        return corpus[indices:indices+time_step]
+    get_data = lambda indices : corpus[indices:indices+time_step]
     
     batch_nums = seq_nums // batch_size
     for i in range(0,batch_nums*batch_size,batch_size):
