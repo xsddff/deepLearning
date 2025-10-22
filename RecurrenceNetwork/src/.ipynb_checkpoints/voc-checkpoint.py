@@ -1,0 +1,61 @@
+import re
+import collections
+def read_dataset():
+  with open('../dataset/time_machine.txt','r',encoding='utf-8') as f:
+    lines = f.readlines()
+    return [ re.sub('[^A-Za-z]+',' ',line).strip().lower() for line in lines ]
+  
+lines = read_dataset()
+# print(f'文本总行数:{len(lines)}')
+# print(lines[0])
+# print(lines[10])
+
+def tokenize(lines,token='word'):
+  if token == 'word':
+    return [ line.split() for line in lines ]
+  elif token == 'char':
+    return [ list(line) for line in lines]
+  else:
+    raise ValueError('错误token类型')
+
+tokens = tokenize(lines)
+# for i in range(10):
+#   print(tokens[i])
+
+class Vocab:
+  def __init__(self,tokens,min_freq=-1,reserve_tokens=None):
+    if tokens is None:
+      tokens = []
+    if reserve_tokens is None:
+      reserve_tokens = []
+
+    counter = collections.Counter( [token for line in tokens for token in line] )
+    self._token_freqs = sorted(counter.items() , key = lambda x:x[1],reverse=True)
+    self.id_to_token = ['<unk>'] + reserve_tokens
+    self.token_to_id = {
+      token:id+1 for id,token in enumerate(self.id_to_token) 
+    }
+
+    for token,freq in self._token_freqs:
+      if freq < min_freq:
+        break
+      self.id_to_token.append(token)
+      self.token_to_id[token] = len(self.id_to_token)
+  
+  def __len__(self):
+    return len(self.id_to_token)
+  
+  def __getitem__(self,tokens):
+    if isinstance(tokens,list):
+      return [self.__getitem__(token) for token in tokens]
+    return self.token_to_id.get(tokens,'<unk>')
+
+  @property
+  def token_freqs(self):
+    return self._token_freqs    
+
+
+if __name__ == '__main__':
+    vocab = Vocab(tokens,min_freq=5)
+    print(list(vocab.id_to_token)[0:10])
+    print(vocab.token_freqs[0:10])
