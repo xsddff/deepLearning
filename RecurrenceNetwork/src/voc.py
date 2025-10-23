@@ -46,7 +46,7 @@ class Vocab:
   def __getitem__(self,tokens):
     if isinstance(tokens,list):
       return [self.__getitem__(token) for token in tokens]
-    return self.token_to_id.get(tokens,'<unk>')
+    return self.token_to_id.get(tokens,'0')
 
   def __call__(self,ids):
     if isinstance(ids,list):
