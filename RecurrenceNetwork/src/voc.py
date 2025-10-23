@@ -31,14 +31,14 @@ class Vocab:
     self._token_freqs = sorted(counter.items() , key = lambda x:x[1],reverse=True)
     self.id_to_token = ['<unk>'] + reserve_tokens
     self.token_to_id = {
-      token:id+1 for id,token in enumerate(self.id_to_token) 
+      token:id for id,token in enumerate(self.id_to_token) 
     }
 
     for token,freq in self._token_freqs:
       if freq < min_freq:
         break
-      self.id_to_token.append(token)
       self.token_to_id[token] = len(self.id_to_token)
+      self.id_to_token.append(token)
   
   def __len__(self):
     return len(self.id_to_token)
@@ -61,6 +61,8 @@ class Vocab:
 if __name__ == '__main__':
     lines = read_dataset('RecurrenceNetwork/dataset/time_machine.txt')
     tokens = tokenize(lines)
-    vocab = Vocab(tokens,min_freq=5)
+    corpus = [ tk for token in tokens for tk in token ]
+    print(corpus)
+    vocab = Vocab(corpus,min_freq=5)
     print(list(vocab.id_to_token)[0:10])
     print(vocab.token_freqs[0:10])

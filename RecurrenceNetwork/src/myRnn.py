@@ -11,27 +11,23 @@ from model import RnnModelScratch
 from tqdm import tqdm
 
 
-def train(epoches,device='cpu'):
+def create_vocabulary(file):
+    # 加载数据集 和 词表
+    lines = read_dataset(file)
+    tokens = tokenize(lines)
+    corpus = [tk for token in tokens for tk in token]
+    voc = Vocab(corpus)
+    return voc,corpus
 
-  # 加载数据集 和 词表
-  lines = read_dataset('../dataset/time_machine.txt')
-  tokens = tokenize(lines)
-  corpus = [ tk for token in tokens for tk in token ]
-  voc = Vocab(corpus)
-
-  corpus = voc[corpus]
-  # print(corpus)
+def train(net,corpus,epoches,device='cpu',lr=1):
 
   dataLoader = seqDataLoader(corpus,batch_size=16,num_steps=5,is_random=True)
 
-  # 加载模型
-  net = RnnModelScratch(voc_size=len(voc),num_hiddens=256)
-
   loss = nn.CrossEntropyLoss()
   if isinstance(net,nn.Module):
-    opt = torch.optim.SGD(net.parameters(),lr=1)
+    opt = torch.optim.SGD(net.parameters(),lr=lr)
   else:
-    opt = torch.optim.SGD(net.params,lr=1)
+    opt = torch.optim.SGD(net.params,lr=lr)
   state = None
 
   total_losses = []
@@ -49,15 +45,14 @@ def train(epoches,device='cpu'):
 def train_epoch(model,state,train_iter,loss,opt,is_random=False,device='cpu'):
   losses = 0
   total = 0
-  for X,Y in train_iter:
+  for X,Y in train_iter:   # 有个 batches 数量的 序列，并且序列式拥有顺序的
     if state is None or is_random:
-      state = model.begin_state(X.shape[0],device='cpu')
+      state = model.begin_state(X.shape[0],device)
     else:
-      for s in state:   # this is for every batch_size H
-        s.detach_()    # 把循环神经网络前面的分离，我们只需要它的数值
+      for s in state:   
+        s.detach_()     # 对每个batch执行时间步截断
   
-    X.to(device)
-    state.to(device)
+    X = X.to(device)
     y_pre,state = model(X,state)
     y = F.one_hot(Y.T.reshape(-1),num_classes=y_pre.shape[-1]).float().to(device)
     l = loss(y_pre,y).mean()
@@ -65,7 +60,7 @@ def train_epoch(model,state,train_iter,loss,opt,is_random=False,device='cpu'):
     l.backward()
     clip_grad(model,1)
     opt.step()
-    losses += l * X.size(0)
+    losses += l.item() * X.size(0)
     total += X.size(0)
   return losses/total
 
@@ -83,9 +78,37 @@ def clip_grad(model,theta):
     for p in params:
       p.grad = p.grad * theta / norm
 
+
+def predict(corpus,prex_nums,model,device):
+    outputs = [ corpus[0] ]
+    def get_data():
+        return torch.tensor(outputs[-1]).reshape(1,1).to(device)
+    H = model.begin_state(1,device)
+    for i in corpus[1:]:
+        _,H = model(get_data(),H)
+        outputs.append(i)
+    for i in range(prex_nums):
+        y,H = model(get_data(),H)
+        y = torch.argmax(y,dim=-1).item()
+        outputs.append(y)
+    return outputs
+
+
 if __name__ == '__main__':
 
-  total_losses = train(10,'cuda:0')
+  device = 'cuda:0'
+  voc,corpus = create_vocabulary('RecurrenceNetwork/dataset/time_machine.txt')
+  corpus = voc[corpus]
+  # 加载模型
+  net = RnnModelScratch(voc_size=len(voc),num_hiddens=256,device=device)
+  total_losses = train(net,corpus,100,device,lr=1)
 
-  plt.plot(range(len(total_losses)),total_losses,color='blue')
-  plt.show()
+  with torch.no_grad():
+    str = 'time traveller '
+    str = str.split()
+    corpus = voc[str]
+    print(corpus)
+    predict_str = predict(corpus,10,net,device)
+    print(predict_str)
+    predict_str = ' '.join(voc(predict_str))
+    print(predict_str)

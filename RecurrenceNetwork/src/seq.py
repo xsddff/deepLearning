@@ -42,7 +42,7 @@ def seq_data_iter_sequential(corpus, batch_size, num_steps):  #@save
     num_tokens = ((len(corpus) - offset - 1) // batch_size) * batch_size
     Xs = torch.tensor(corpus[offset: offset + num_tokens])
     Ys = torch.tensor(corpus[offset + 1: offset + 1 + num_tokens])
-    Xs, Ys = Xs.reshape(batch_size, -1), Ys.reshape(batch_size, -1)
+    Xs, Ys = Xs.reshape(-1,batch_size).T, Ys.reshape(-1,batch_size).T    # 为了适合后续训练数据的shape(time_step,batch_size) -->  确保相邻的batches之间时间步连续
     num_batches = Xs.shape[1] // num_steps
     for i in range(0, num_steps * num_batches, num_steps):
         X = Xs[:, i: i + num_steps]
