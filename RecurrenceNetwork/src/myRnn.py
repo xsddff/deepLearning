@@ -35,7 +35,7 @@ def train(net,corpus,epoches,device='cpu',lr=1):
   total_losses = []
   with tqdm(total = epoches,desc='模型训练中') as pbar:
     for epoch in range(epoches):
-      losses = train_epoch(net,state,dataLoader,loss,opt,is_random=True,device=device)
+      losses = train_epoch(net,state,dataLoader,loss,opt,device=device)
       total_losses.append(losses)
       if (epoch+1) % 1 == 0:
         pbar.update(1)
@@ -51,8 +51,11 @@ def train_epoch(model,state,train_iter,loss,opt,is_random=False,device='cpu'):
     if state is None or is_random:
       state = model.begin_state(X.shape[0],device)
     else:
-      for s in state:   
-        s.detach_()     # 对每个batch执行时间步截断
+      if isinstance(state,tuple):
+        for s in state:
+          s.detach_()
+      else:
+        state.detach_()     # 对每个batch执行时间步截断
   
     X = X.to(device)
     y_pre,state = model(X,state)
@@ -178,7 +181,7 @@ if __name__ == '__main__':
   corpus = voc[corpus]
 
   # 加载手搓的模型
-  # net_rnn = RnnModelScratch(voc_size=len(voc),num_hiddens=256,device=device)
+  # net_rnn = RnnModelScratch(voc_size=len(voc),num_hiddens=256,device=device,num_layers=2)
   # total_losses_rnn = train(net_rnn,corpus,100,device,lr=1)
   # net_gru = GRUModelScratch(voc_size=len(voc),num_hiddens=256,device=device)
   # total_losses_gru = train(net_gru,corpus,100,device,lr=1)

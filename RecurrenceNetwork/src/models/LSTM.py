@@ -46,7 +46,7 @@ class my_gru:
     def forward(inputs,state):
       outputs = []
       h,c = state
-      for x in inputs:
+      for x in inputs:     # h会以最新time_step的隐藏状态输出
         F = torch.sigmoid( x @ W_xf + h @ W_hf + bf )  # 遗忘门
         I = torch.sigmoid( x @ W_xi + h @ W_hi + bi )  # 输入门
         O = torch.sigmoid( x @ W_xo + h @ W_ho + bo )  # 输出门

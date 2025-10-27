@@ -42,7 +42,7 @@ def seq_data_iter_sequential(corpus, batch_size, num_steps):  #@save
     num_tokens = ((len(corpus) - offset - 1) // batch_size) * batch_size
     Xs = torch.tensor(corpus[offset: offset + num_tokens])
     Ys = torch.tensor(corpus[offset + 1: offset + 1 + num_tokens])
-    Xs, Ys = Xs.reshape(-1,batch_size).T, Ys.reshape(-1,batch_size).T    # 为了适合后续训练数据的shape(time_step,batch_size) -->  确保相邻的batches之间时间步连续
+    Xs, Ys = Xs.reshape(batch_size,-1), Ys.reshape(batch_size,-1)    # 为了适合后续训练数据的shape(time_step,batch_size) -->  确保相邻的batches之间时间步连续
     num_batches = Xs.shape[1] // num_steps
     for i in range(0, num_steps * num_batches, num_steps):
         X = Xs[:, i: i + num_steps]
@@ -65,12 +65,12 @@ class seqDataLoader:
 if __name__ == '__main__':
     lines = readToken()
     tokens = tokenize(lines)
-
+    corpus = [tk for token in tokens for tk in token]
     # test for the differ time step tokens freq
-    voc1 = Vocab(tokens)
-    token2 = [ [tk] for token in tokens for tk in zip(token[:-2],token[1:]) ]
+    voc1 = Vocab(corpus)
+    token2 = [ token for token in zip(corpus[:-2],corpus[1:]) ]
     voc2 = Vocab(token2)
-    token3 = [ [tk] for token in tokens for tk in zip(token[:-3],token[1:-2],token[2:]) ]
+    token3 = [ token for token in zip(corpus[:-3],corpus[1:-2],corpus[2:]) ]
     voc3 = Vocab(token3)
     # print(voc3.token_freqs)
     plt.plot(range(len(voc1.token_freqs[0:10])),[ freq for tk,freq in voc1.token_freqs[0:10] ],color='blue')
@@ -84,5 +84,5 @@ if __name__ == '__main__':
 
     corpus : list = [ tk for token in tokens for tk in token ]
     my_seq = list(range(35))
-    for X,Y in seq_data_iter_random(my_seq,2,5):
+    for X,Y in seq_data_iter_sequential(my_seq,2,5):
         print('X:',X,'\nY:',Y)
