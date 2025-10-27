@@ -5,10 +5,11 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import numpy as np
 import random
-from seq import seqDataLoader
-from voc import Vocab,read_dataset,tokenize
-from model import RnnModelScratch
-from GRU import GRUModelScratch
+from data import seqDataLoader
+from data import Vocab,read_dataset,tokenize
+from models import RnnModelScratch
+from models import GRUModelScratch
+from models import lstmModelScratch
 from tqdm import tqdm
 import re
 
@@ -59,7 +60,7 @@ def train_epoch(model,state,train_iter,loss,opt,is_random=False,device='cpu'):
     l = loss(y_pre,y).mean()
     opt.zero_grad()
     l.backward()
-    clip_grad(model,1)
+    clip_grad(model,1)   # 计算梯度并梯度裁切
     opt.step()
     losses += l.item() * X.size(0)
     total += X.size(0)
@@ -77,21 +78,24 @@ def clip_grad(model,theta):
 
   if norm > theta:
     for p in params:
-      p.grad = p.grad * theta / norm
+      if p.grad is not None:
+        p.grad = p.grad * theta / norm
+  
+  # torch.nn.utils.clip_grad.clip_grad_norm_(model.parameters(),theta)
 
 def predict(corpus,prex_nums,model,time_step,device):
     outputs = [ corpus[0],corpus[1],corpus[2] ]
     def get_data():
-        return torch.tensor(outputs[-time_step:]).reshape(1,time_step).unsqueeze(dim=-1).to(device) if not(isinstance(model,nn.Module)) else torch.tensor(outputs[-time_step:]).reshape(time_step,1).unsqueeze(dim=-1).float().to(device)
-    H = model.begin_state(1,device) if not(isinstance(model,nn.Module)) else torch.zeros((1,1,256),device=device).float()
+        return torch.tensor(outputs[-time_step:]).reshape(1,time_step).to(device)
+    state = model.begin_state(1,device)
     for i in corpus[time_step:]:
-        _,H = model(get_data(),H)
+        _,state = model(get_data(),state)
         outputs.append(i)
     for i in range(prex_nums):
-        y,H = model(get_data(),H)
+        y,state = model(get_data(),state)
         y = torch.argmax(y,dim=-1)
         outputs += [y_.item() for y_ in y]
-    return outputs,H
+    return outputs,state
 
 
 def error_test():
@@ -118,10 +122,53 @@ def error_test():
     nn.Linear(256,len(voc)),
   ).to(device)
   # torch.nn循环神经网络喂养数据的方式是 (time_step,batch_size,)
-  # 隐藏层shape(num_layers*num_directions,batch_size,h_features)
+  # 隐藏状态shape(num_layers*num_directions,batch_size,h_features)
   # 输出shape(seq_len, batch_size, hidden_size * num_directions)
 
   return model_rnn,model_gru
+
+class rnn_torch(nn.Module):
+  def __init__(self, voc_size,hidden_size,select_model,num_layers=1,num_directions=1) -> None:
+    '''
+    select_model:
+      1:  rnn
+      2:  gru
+      3:  lstm
+    '''
+    super().__init__()
+    self.voc_size = voc_size
+    self.hidden_size = hidden_size
+    self.selece_model = select_model
+    self.num_layers = num_layers
+    self.num_directions = num_directions
+    self.rnn = nn.RNN(voc_size,hidden_size)   # (time_step,batch_size,voc_size)
+    self.gru = nn.GRU(voc_size,hidden_size)
+    self.lstm = nn.LSTM(voc_size,hidden_size)
+    self.dense = nn.Linear(hidden_size,voc_size)
+  
+  def forward(self,X,state):
+    '''
+    x -> (batch_size,time_step,voc_size)
+    '''
+    X = X.long()
+    X = F.one_hot(X.T,num_classes=self.voc_size).float()
+    if self.selece_model == 1:
+      X,state = self.rnn(X,state)
+    elif self.selece_model == 2:
+      X,state = self.gru(X,state)
+    elif self.selece_model == 3:
+      X,state = self.lstm(X,state)
+    X = X.reshape(-1,self.hidden_size)
+    Y = torch.relu(self.dense(X))
+    return Y,state
+  def begin_state(self,batch_size,device='cpu'):
+    if self.selece_model == 1 or self.selece_model == 2:
+      return torch.zeros((self.num_directions*self.num_layers,batch_size,self.hidden_size),device=device).float()
+    elif self.selece_model == 3:
+      return (torch.zeros((self.num_directions*self.num_layers,batch_size,self.hidden_size),device=device).float(),
+              torch.zeros((self.num_directions*self.num_layers,batch_size,self.hidden_size),device=device).float())
+
+
 
 
 
@@ -131,30 +178,27 @@ if __name__ == '__main__':
   corpus = voc[corpus]
 
   # 加载手搓的模型
-  net_rnn = RnnModelScratch(voc_size=len(voc),num_hiddens=256,device=device)
-  total_losses_rnn = train(net_rnn,corpus,100,device,lr=1)
-  net_gru = GRUModelScratch(voc_size=len(voc),num_hiddens=256,device=device)
-  total_losses_gru = train(net_gru,corpus,100,device,lr=1)
+  # net_rnn = RnnModelScratch(voc_size=len(voc),num_hiddens=256,device=device)
+  # total_losses_rnn = train(net_rnn,corpus,100,device,lr=1)
+  # net_gru = GRUModelScratch(voc_size=len(voc),num_hiddens=256,device=device)
+  # total_losses_gru = train(net_gru,corpus,100,device,lr=1)
+  # net_lstm = lstmModelScratch(voc_size=len(voc),num_hiddens=256,device=device)
+  # total_losses_lstm = train(net_lstm,corpus,100,device,lr=1)
 
-  plt.plot(range(len(total_losses_rnn)),total_losses_rnn,color='blue',label='rnn')
-  plt.plot(range(len(total_losses_gru)),total_losses_gru,color='red',label='gru')
-  plt.legend()
-  plt.show()
+  # 加载torch模块里面的模型
+  torch_net = rnn_torch(voc_size=len(voc),hidden_size=256,select_model=3).to(device)
+  total_losses_torch = train(torch_net,corpus,100,device,lr=1)
 
-  with torch.no_grad():
-    str = ' I took the starting lever in one hand'
-    str = re.sub('[^A-Za-z0-9]',' ',str).lower().split()
-    corpus = voc[str]
-    predict_str,state = predict(corpus,10,net_rnn,3,device)
-    print(predict_str)
-    predict_str = ' '.join(voc(predict_str))
-    print(predict_str)
+  # plt.plot(range(len(total_losses_rnn)),total_losses_rnn,color='blue',label='rnn')
+  # plt.plot(range(len(total_losses_lstm)),total_losses_gru,color='red',label='gru')
+  # plt.legend()
+  # plt.show()
 
   with torch.no_grad():
     str = ' I took the starting lever in one hand'
     str = re.sub('[^A-Za-z0-9]',' ',str).lower().split()
     corpus = voc[str]
-    predict_str,state = predict(corpus,10,net_gru,3,device)
+    predict_str,state = predict(corpus,10,torch_net,3,device)
     print(predict_str)
     predict_str = ' '.join(voc(predict_str))
     print(predict_str)

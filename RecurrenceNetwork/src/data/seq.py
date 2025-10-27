@@ -1,4 +1,4 @@
-from voc import Vocab
+from .voc import Vocab
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
