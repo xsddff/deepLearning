@@ -33,7 +33,7 @@ class my_nn:
     for param in params:
       if isinstance(param,list):
         for p in param:
-          p.requires_grad(True)
+          p.requires_grad_(True)
           p.data = p.data.to(device)
       else:
         param.requires_grad_(True)

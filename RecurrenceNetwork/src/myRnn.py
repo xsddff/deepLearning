@@ -1,7 +1,10 @@
 from turtle import color
+from sympy import true
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from warmup_scheduler import GradualWarmupScheduler
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -21,21 +24,25 @@ def create_vocabulary(file):
     voc = Vocab(corpus)
     return voc,corpus
 
-def train(net,corpus,epoches,device='cpu',lr=1):
+def train(net,corpus,epoches,device='cpu',lr=0.8):
 
-  dataLoader = seqDataLoader(corpus,batch_size=16,num_steps=5,is_random=True)
+  dataLoader = seqDataLoader(corpus,batch_size=16,num_steps=5,is_random=False)
 
   loss = nn.CrossEntropyLoss()
   if isinstance(net,nn.Module):
     opt = torch.optim.SGD(net.parameters(),lr=lr)
   else:
     opt = torch.optim.SGD(net.params,lr=lr)
+
+  consine_scheduler = CosineAnnealingLR( opt,T_max=120,eta_min=1e-3 )
+  scheduler = GradualWarmupScheduler(opt,1.2,30,consine_scheduler)
+
   state = None
 
   total_losses = []
   with tqdm(total = epoches,desc='模型训练中') as pbar:
     for epoch in range(epoches):
-      losses = train_epoch(net,state,dataLoader,loss,opt,device=device)
+      losses = train_epoch(net,state,dataLoader,loss,scheduler,device=device,is_random=True)
       total_losses.append(losses)
       if (epoch+1) % 1 == 0:
         pbar.update(1)
@@ -59,7 +66,8 @@ def train_epoch(model,state,train_iter,loss,opt,is_random=False,device='cpu'):
   
     X = X.to(device)
     y_pre,state = model(X,state)
-    y = F.one_hot(Y.T.reshape(-1),num_classes=y_pre.shape[-1]).float().to(device)
+    # y = F.one_hot(Y.T.reshape(-1),num_classes=y_pre.shape[-1]).float().to(device)
+    y = Y.T.reshape(-1).to(device)
     l = loss(y_pre,y).mean()
     opt.zero_grad()
     l.backward()
@@ -190,7 +198,7 @@ if __name__ == '__main__':
 
   # 加载torch模块里面的模型
   torch_net = rnn_torch(voc_size=len(voc),hidden_size=256,select_model=3).to(device)
-  total_losses_torch = train(torch_net,corpus,100,device,lr=1)
+  total_losses_torch = train(torch_net,corpus,300,device,lr=1)
 
   # plt.plot(range(len(total_losses_rnn)),total_losses_rnn,color='blue',label='rnn')
   # plt.plot(range(len(total_losses_lstm)),total_losses_gru,color='red',label='gru')
@@ -201,7 +209,7 @@ if __name__ == '__main__':
     str = ' I took the starting lever in one hand'
     str = re.sub('[^A-Za-z0-9]',' ',str).lower().split()
     corpus = voc[str]
-    predict_str,state = predict(corpus,10,torch_net,3,device)
+    predict_str,state = predict(corpus,10,torch_net,1,device)
     print(predict_str)
     predict_str = ' '.join(voc(predict_str))
     print(predict_str)
