@@ -31,13 +31,13 @@ def wordsToArrays(words,num_steps,voc,padding_token='<pad>',endding_token='<eos>
   valid_len = (arr != voc[padding_token]).type(torch.int32).sum(1)
   return arr,valid_len
 
-def mntDataLoader(file,batch_size,num_samples,num_steps,is_train=True):
+def mntDataLoader(file,batch_size,num_samples,is_train=True):
   file = '../dataset/fra-eng/fra.txt'
   src,tar = get_dataset(file,num_samples)
   voc_src = d2l.Vocab(src,reserved_tokens=['<pad>','<bos>','<eos>'])
   voc_tar = d2l.Vocab(tar,reserved_tokens=['<pad>','<bos>','<eos>'])
-  src_mnt_arr,src_valid_len = wordsToArrays(src,num_steps,voc_src)
-  tar_mnt_arr,tar_valid_len = wordsToArrays(tar,num_steps,voc_tar)
+  src_mnt_arr,src_valid_len = wordsToArrays(src,5,voc_src)
+  tar_mnt_arr,tar_valid_len = wordsToArrays(tar,5,voc_tar)
   data_arrays = (src_mnt_arr,src_valid_len,tar_mnt_arr,tar_valid_len)
   dataset = torch.utils.data.TensorDataset(*data_arrays)
   data_iter = torch.utils.data.DataLoader(dataset,batch_size,shuffle=is_train)
@@ -45,9 +45,8 @@ def mntDataLoader(file,batch_size,num_samples,num_steps,is_train=True):
 
 if __name__ == '__main__':
   file = '../dataset/fra-eng/fra.txt'
-  data_iter,voc_src,voc_tar = mntDataLoader(file,16,600,10)
-  print(voc_tar.token_freqs[:10])
-  # for src,src_len,tar,tar_len in data_iter:
-  #   print(src,src_len)
-  #   print(tar,tar_len)
-  #   break
+  data_iter,voc_src,voc_tar = mntDataLoader(file,16)
+  for src,src_len,tar,tar_len in data_iter:
+    print(src,src_len)
+    print(tar,tar_len)
+    break

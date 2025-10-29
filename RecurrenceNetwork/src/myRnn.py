@@ -42,7 +42,7 @@ def train(net,corpus,epoches,device='cpu',lr=0.8):
   total_losses = []
   with tqdm(total = epoches,desc='模型训练中') as pbar:
     for epoch in range(epoches):
-      losses = train_epoch(net,state,dataLoader,loss,scheduler,device=device,is_random=True)
+      losses = train_epoch(net,state,dataLoader,loss,opt,device=device,is_random=True)
       total_losses.append(losses)
       if (epoch+1) % 1 == 0:
         pbar.update(1)
